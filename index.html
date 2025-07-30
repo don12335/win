@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仿 Windows 11 駭客模擬桌面</title>
+<style>
+  * { box-sizing: border-box; }
+  body, html {
+    margin:0; padding:0;
+    height:100vh;
+    overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: url('https://wallpaperaccess.com/full/1226108.jpg') no-repeat center center fixed;
+    background-size: cover;
+    user-select: none;
+    color: #0f0;
+    background-color: #000;
+  }
+  #desktop {
+    position: relative;
+    width: 100%; height: calc(100vh - 40px);
+    padding: 10px;
+  }
+  .icon {
+    position: absolute;
+    width: 72px;
+    text-align: center;
+    cursor: pointer;
+    color: #0f0;
+    user-select: none;
+  }
+  .icon img {
+    width: 64px; height: 64px;
+    pointer-events: none;
+  }
+  .icon span {
+    font-size: 14px;
+    display: block;
+    margin-top: 4px;
+  }
+  #taskbar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    background: rgba(0, 20, 0, 0.9);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    user-select: none;
+    z-index: 10000;
+  }
+  #start-btn {
+    width: 36px; height: 36px;
+    background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Windows_11_logo.svg/768px-Windows_11_logo.svg.png') no-repeat center;
+    background-size: 24px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 10px;
+    filter: brightness(0) invert(1);
+  }
+  #clock {
+    margin-left: auto;
+    font-family: monospace;
+    font-size: 14px;
+    color: #0f0;
+  }
+  #start-menu {
+    position: fixed;
+    bottom: 40px;
+    left: 10px;
+    width: 240px;
+    background: rgba(0, 50, 0, 0.9);
+    border-radius: 10px;
+    padding: 10px;
+    color: #0f0;
+    display: none;
+    z-index: 15000;
+  }
+  #start-menu ul {
+    list-style: none;
+    margin: 0; padding: 0;
+  }
+  #start-menu li {
+    padding: 6px 8px;
+    cursor: pointer;
+  }
+  #start-menu li:hover {
+    background: rgba(0,255,0,0.2);
+  }
+  .window {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid #0f0;
+    border-radius: 8px;
+    color: #0f0;
+    font-family: monospace;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 0 15px #0f0;
+    user-select: text;
+    z-index: 1000;
+  }
+  .window-header {
+    background: rgba(0, 128, 0, 0.9);
+    padding: 6px 10px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    cursor: move;
+    user-select: none;
+  }
+  .window-header span {
+    font-weight: bold;
+    font-size: 14px;
+  }
+  .window-header .buttons button {
+    background: transparent;
+    border: none;
+    color: #0f0;
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .window-content {
+    padding: 10px;
+    flex-grow: 1;
+    overflow-y: auto;
+    font-size: 14px;
+  }
+  #terminal-output {
+    background: black;
+    color: #0f0;
+    height: 100%;
+    overflow-y: auto;
+    padding: 5px;
+  }
+  #terminal-input {
+    width: 100%;
+    padding: 6px;
+    background: black;
+    border: none;
+    color: #0f0;
+    font-family: monospace;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+  }
+  #taskbar-windows {
+    display: flex;
+    gap: 8px;
+  }
+  .taskbar-window-btn {
+    background: rgba(0,255,0,0.2);
+    border-radius: 6px;
+    padding: 2px 10px;
+    color: #0f0;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    position: relative;
+  }
+  .taskbar-window-btn:hover .preview {
+    display: block;
+  }
+  .preview {
+    position: absolute;
+    bottom: 36px;
+    left: 0;
+    width: 200px;
+    height: 120px;
+    background: black;
+    border: 2px solid #0f0;
+    display: none;
+    z-index: 20000;
+    font-family: monospace;
+    font-size: 10px;
+    padding: 6px;
+    overflow: hidden;
+    white-space: pre-wrap;
+  }
+  #desktop-context-menu {
+    position: fixed;
+    background: rgba(0,0,0,0.95);
+    color: #0f0;
+    border: 1px solid #0f0;
+    border-radius: 6px;
+    display: none;
+    z-index: 30000;
+    width: 180px;
+    user-select: none;
+  }
+  #desktop-context-menu ul {
+    margin: 0;
+    padding: 6px 0;
+    list-style: none;
+  }
+  #desktop-context-menu li {
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  #desktop-context-menu li:hover {
+    background: rgba(0,255,0,0.2);
+  }
+  #settings-panel {
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    width: 280px;
+    background: rgba(0,0,0,0.95);
+    border: 1px solid #0f0;
+    border-radius: 10px;
+    padding: 12px;
+    color: #0f0;
+    font-family: monospace;
+    font-size: 14px;
+    z-index: 35000;
+    display: none;
+    user-select: text;
+  }
+  #settings-panel label {
+    display: block;
+    margin: 10px 0 6px;
+  }
+  #settings-panel select, #settings-panel input[type="checkbox"] {
+    margin-top: 4px;
+  }
+  #settings-panel button {
+    margin-top: 12px;
+    padding: 6px 12px;
+    background: #0f0;
+    color: black;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div id="desktop"></div>
+  <div id="taskbar">
+    <div id="start-btn" title="開始選單"></div>
+    <div id="taskbar-windows"></div>
+    <div id="clock"></div>
+  </div>
+  <div id="start-menu">
+    <ul>
+      <li data-window="folder1">開啟資料夾</li>
+      <li data-window="terminal">開啟終端機</li>
+      <li id="open-browser">開啟瀏覽器</li>
+      <li id="open-settings">設定面板</li>
+    </ul>
+  </div>
+
+  <!-- 資料夾視窗 -->
+  <div class="window" id="folder1" style="top:50px; left:50px; width:350px; height:250px;">
+    <div class="window-header">
+      <span>資料夾</span>
+      <div class="buttons">
+        <button class="minimize-btn">—</button>
+        <button class="maximize-btn">□</button>
+        <button class="close-btn">&times;</button>
+      </div>
+    </div>
+    <div class="window-content">
+      <p>這是模擬資料夾內容。</p>
+    </div>
+  </div>
+
+  <!-- 終端機視窗 -->
+  <div class="window" id="terminal" style="top:100px; left:420px; width:400px; height:300px; flex-direction: column;">
+    <div class="window-header">
+      <span>終端機</span>
+      <div class="buttons">
+        <button class="minimize-btn">—</button>
+        <button class="maximize-btn">□</button>
+        <button class="close-btn">&times;</button>
+      </div>
+    </div>
+    <div class="window-content" id="terminal-output" style="flex-grow:1; background:black; color:#0f0; font-family: monospace; overflow-y:auto;"></div>
+    <input type="text" id="terminal-input" placeholder="輸入指令，按 Enter 執行" autocomplete="off" style="background:black; color:#0f0; border:none; padding:6px; font-family: monospace; font-size: 14px;"/>
+  </div>
+
+  <!-- 瀏覽器視窗 -->
+  <div class="window" id="browser" style="top:130px; left:850px; width:450px; height:350px; flex-direction: column;">
+    <div class="window-header">
+      <span>瀏覽器</span>
+      <div class="buttons">
+        <button class="minimize-btn">—</button>
+        <button class="maximize-btn">□</button>
+        <button class="close-btn">&times;</button>
+      </div>
+    </div>
+    <div class="window-content" style="flex-grow:0; padding:6px;">
+      <input type="text" id="browser-url" placeholder="輸入網址，例: www.google.com" style="width:100%; padding:6px; font-family: monospace; font-size: 14px;" />
+    </div>
+    <div class="window-content" id="browser-content" style="flex-grow:1; overflow-y:auto; font-family: monospace; font-size:14px; color:#0f0; background:black; padding:10px;">
+      請輸入網址並按 Enter。
+    </div>
+  </div>
+
+  <!-- 右鍵選單 -->
+  <div id="desktop-context-menu">
+    <ul>
+      <li id="create-folder">新增資料夾</li>
+      <li id="change-background">切換背景</li>
+      <li id="refresh-desktop">重新整理桌面</li>
+    </ul>
+  </div>
+
+  <!-- 設定面板 -->
+  <div id="settings-panel">
+    <h3>使用者設定</h3>
+    <label for="theme-select">主題色彩：</label>
+    <select id="theme-select">
+      <option value="green" selected>綠色 (預設)</option>
+      <option value="blue">藍色</option>
+      <option value="red">紅色</option>
+    </select>
+
+    <label for="bg-select">桌面背景：</label>
+    <select id="bg-select">
+      <option value="bg1" selected>經典駭客背景</option>
+      <option value="bg2">Windows 11 藍色</option>
+      <option value="bg3">深夜城市</option>
+    </select>
+
+    <label><input type="checkbox" id="sound-toggle" checked> 開啟音效</label>
+
+    <button id="close-settings">關閉設定</button>
+  </div>
+
+<script>
+(() => {
+  // 全域變數
+  const desktop = document.getElementById('desktop');
+  const startBtn = document.getElementById('start-btn');
+  const startMenu = document.getElementById('start-menu');
+  const clock = document.getElementById('clock');
+  const taskbarWindows = document.getElementById('taskbar-windows');
+  const contextMenu = document.getElementById('desktop-context-menu');
+  const settingsPanel = document.getElementById('settings-panel');
+
+  let windows = {};
+  let zIndex = 1000;
+  let draggedWindow = null;
+  let draggedIcon = null;
+  let offsetX = 0, offsetY = 0;
+  let iconOffsetX = 0, iconOffsetY = 0;
+
+  // 背景圖片集合
+  const backgrounds = {
+    bg1: 'https://wallpaperaccess.com/full/1226108.jpg',
+    bg2: 'https://wallpapercave.com/wp/wp8323421.jpg',
+    bg3: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80'
+  };
+
+  // 主題顏色設定
+  const themeColors = {
+    green: '#0f0',
+    blue: '#0af',
+    red: '#f33'
+  };
+
+  // 初始化桌面背景（預設bg1）
+  function setBackground(key) {
+    document.body.style.backgroundImage = `url(${backgrounds[key] || backgrounds.bg1})`;
+  }
+  setBackground('bg1');
+
+  // 設定主題色彩
+  function setThemeColor(color) {
+    const root = document.documentElement;
+    root.style.setProperty('--theme-color', themeColors[color] || themeColors.green);
+    // 這裡可延伸改變更多顏色變數
+  }
+  setThemeColor('green');
+
+  // 更新時鐘
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    clock.textContent = `${h}:${m}:${s}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // 開始選單開關
+  startBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (startMenu.style.display === 'block') {
+      startMenu.style.display = 'none';
+    } else {
+      startMenu.style.display = 'block';
+      contextMenu.style.display = 'none';
+      settingsPanel.style.display = 'none';
+    }
+  });
+
+  // 點開始選單開視窗
+  startMenu.querySelectorAll('li[data-window]').forEach(li => {
+    li.addEventListener('click', e => {
+      const winId = e.target.dataset.window;
+      openWindow(winId);
+      startMenu.style.display = 'none';
+    });
+  });
+  // 開啟瀏覽器與設定面板
+  document.getElementById('open-browser').addEventListener('click', () => {
+    openWindow('browser');
+    startMenu.style.display = 'none';
+  });
+  document.getElementById('open-settings').addEventListener('click', () => {
+    toggleSettings();
+    startMenu.style.display = 'none';
+  });
+
+  // 建立桌面圖示，含拖曳
+  const desktopIcons = [
+    { id: 'folder1', img: 'https://icons.iconarchive.com/icons/custom-icon-design/mono-general-2/256/folder-icon.png', name: '資料夾', left: 50, top: 50 },
+    { id: 'terminal', img: 'https://icons.iconarchive.com/icons/custom-icon-design/mono-general-2/256/terminal-icon.png', name: '終端機', left: 150, top: 50 },
+    { id: 'browser', img: 'https://icons.iconarchive.com/icons/dtafalonso/android-lollipop/256/Chrome-icon.png', name: '瀏覽器', left: 250, top: 50 }
+  ];
+
+  function createIcon(iconData) {
+    const icon = document.createElement('div');
+    icon.className = 'icon';
+    icon.style.left = iconData.left + 'px';
+    icon.style.top = iconData.top + 'px';
+    icon.setAttribute('data-window', iconData.id);
+    icon.innerHTML = `<img src="${iconData.img}" alt="${iconData.name}" /><span>${iconData.name}</span>`;
+    desktop.appendChild(icon);
+
+    icon.addEventListener('dblclick', () => openWindow(iconData.id));
+    icon.style.position = 'absolute';
+
+    // 拖曳事件
+    icon.addEventListener('mousedown', e => {
+      draggedIcon = icon;
+      iconOffsetX = e.clientX - icon.offsetLeft;
+      iconOffsetY = e.clientY - icon.offsetTop;
+      icon.style.zIndex = 2000;
+      e.preventDefault();
+    });
+  }
+  desktopIcons.forEach(createIcon);
+
+  // 拖曳圖示移動
+  document.addEventListener('mousemove', e => {
+    if (draggedIcon) {
+      draggedIcon.style.left = (e.clientX - iconOffsetX) + 'px';
+      draggedIcon.style.top = (e.clientY - iconOffsetY) + 'px';
+    }
+  });
+  document.addEventListener('mouseup', e => {
+    if (draggedIcon) {
+      draggedIcon.style.zIndex = '';
+      draggedIcon = null;
+    }
+  });
+
+  // 開啟視窗
+  function openWindow(id) {
+    const win = document.getElementById(id);
+    if (!win) return;
+    win.style.display = 'flex';
+    bringToFront(win);
+    addTaskbarButton(id, win.querySelector('.window-header span').textContent);
+  }
+
+  // 置頂視窗
+  function bringToFront(win) {
+    zIndex++;
+    win.style.zIndex = zIndex;
+  }
+
+  // 任務列管理視窗按鈕
+  function addTaskbarButton(id, title) {
+    if (document.getElementById('taskbar-btn-' + id)) return; // 已存在
+    const btn = document.createElement('div');
+    btn.className = 'taskbar-window-btn';
+    btn.id = 'taskbar-btn-' + id;
+    btn.textContent = title;
+
+    // 縮圖預覽區 (簡單用視窗內容文字)
+    const preview = document.createElement('div');
+    preview.className = 'preview';
+    preview.textContent = document.getElementById(id).querySelector('.window-content').textContent.trim();
+    btn.appendChild(preview);
+
+    btn.addEventListener('click', () => {
+      const win = document.getElementById(id);
+      if (win.style.display === 'none') {
+        win.style.display = 'flex';
+        bringToFront(win);
+      } else {
+        win.style.display = 'none';
+      }
+    });
+    taskbarWindows.appendChild(btn);
+  }
+
+  // 視窗控制按鈕功能
+  document.querySelectorAll('.window-header .close-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const win = e.target.closest('.window');
+      win.style.display = 'none';
+      // 移除任務列按鈕
+      const taskBtn = document.getElementById('taskbar-btn-' + win.id);
+      if (taskBtn) taskBtn.remove();
+    });
+  });
+  document.querySelectorAll('.window-header .minimize-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const win = e.target.closest('.window');
+      win.style.display = 'none';
+    });
+  });
+  document.querySelectorAll('.window-header .maximize-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const win = e.target.closest('.window');
+      if (win.classList.contains('maximized')) {
+        // 還原
+        win.style.width = win.dataset.oldWidth;
+        win.style.height = win.dataset.oldHeight;
+        win.style.left = win.dataset.oldLeft;
+        win.style.top = win.dataset.oldTop;
+        win.classList.remove('maximized');
+      } else {
+        // 紀錄目前大小位置
+        win.dataset.oldWidth = win.style.width || getComputedStyle(win).width;
+        win.dataset.oldHeight = win.style.height || getComputedStyle(win).height;
+        win.dataset.oldLeft = win.style.left || getComputedStyle(win).left;
+        win.dataset.oldTop = win.style.top || getComputedStyle(win).top;
+        // 最大化
+        win.style.width = window.innerWidth + 'px';
+        win.style.height = (window.innerHeight - 40) + 'px';
+        win.style.left = '0px';
+        win.style.top = '0px';
+        win.classList.add('maximized');
+      }
+      bringToFront(win);
+    });
+  });
+
+  // 拖曳視窗
+  document.querySelectorAll('.window-header').forEach(header => {
+    header.addEventListener('mousedown', e => {
+      const win = e.target.closest('.window');
+      draggedWindow = win;
+      offsetX = e.clientX - win.offsetLeft;
+      offsetY = e.clientY - win.offsetTop;
+      bringToFront(win);
+      e.preventDefault();
+    });
+  });
+  document.addEventListener('mousemove', e => {
+    if (draggedWindow) {
+      draggedWindow.style.left = (e.clientX - offsetX) + 'px';
+      draggedWindow.style.top = (e.clientY - offsetY) + 'px';
+    }
+  });
+  document.addEventListener('mouseup', e => {
+    draggedWindow = null;
+  });
+
+  // 右鍵選單功能
+  desktop.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    contextMenu.style.left = e.clientX + 'px';
+    contextMenu.style.top = e.clientY + 'px';
+    contextMenu.style.display = 'block';
+    startMenu.style.display = 'none';
+    settingsPanel.style.display = 'none';
+  });
+  document.body.addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    startMenu.style.display = 'none';
+    // 不自動關閉設定面板，須手動關閉
+  });
+
+  // 新增資料夾
+  document.getElementById('create-folder').addEventListener('click', () => {
+    alert('新增資料夾功能，僅模擬');
+    contextMenu.style.display = 'none';
+  });
+
+  // 切換背景
+  let bgKeys = Object.keys(backgrounds);
+  let bgIndex = 0;
+  document.getElementById('change-background').addEventListener('click', () => {
+    bgIndex = (bgIndex + 1) % bgKeys.length;
+    setBackground(bgKeys[bgIndex]);
+    contextMenu.style.display = 'none';
+  });
+
+  // 重新整理桌面
+  document.getElementById('refresh-desktop').addEventListener('click', () => {
+    location.reload();
+  });
+
+  // 偽終端機指令執行
+  const terminalInput = document.getElementById('terminal-input');
+  const terminalOutput = document.getElementById('terminal-output');
+  terminalInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const cmd = terminalInput.value.trim();
+      if (!cmd) return;
+      terminalOutput.innerHTML += `<div>&gt; ${cmd}</div>`;
+      // 模擬簡單指令
+      let response = '';
+      if (cmd === 'help') {
+        response = '可用指令：help, date, echo [text], clear';
+      } else if (cmd === 'date') {
+        response = new Date().toString();
+      } else if (cmd.startsWith('echo ')) {
+        response = cmd.slice(5);
+      } else if (cmd === 'clear') {
+        terminalOutput.innerHTML = '';
+      } else {
+        response = `未知指令: ${cmd}`;
+      }
+      if (cmd !== 'clear') terminalOutput.innerHTML += `<div>${response}</div>`;
+      terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      terminalInput.value = '';
+    }
+  });
+
+  // 瀏覽器 URL 輸入
+  const browserUrlInput = document.getElementById('browser-url');
+  const browserContent = document.getElementById('browser-content');
+  browserUrlInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      let url = browserUrlInput.value.trim();
+      if (!url) return;
+      if (!url.startsWith('http')) {
+        url = 'https://' + url;
+      }
+      browserContent.textContent = `模擬載入：${url}\n（此為假瀏覽器，無法真正打開頁面）`;
+    }
+  });
+
+  // 設定面板開關
+  document.getElementById('open-settings').addEventListener('click', toggleSettings);
+  document.getElementById('close-settings').addEventListener('click', () => {
+    settingsPanel.style.display = 'none';
+  });
+
+  // 設定面板互動
+  const themeSelect = document.getElementById('theme-select');
+  const bgSelect = document.getElementById('bg-select');
+  const soundToggle = document.getElementById('sound-toggle');
+
+  themeSelect.addEventListener('change', e => {
+    let val = e.target.value;
+    let color = themeColors[val] || themeColors.green;
+    document.body.style.setProperty('--theme-color', color);
+  });
+  bgSelect.addEventListener('change', e => {
+    setBackground(e.target.value);
+  });
+  soundToggle.addEventListener('change', e => {
+    alert('音效開關（功能尚未實作）');
+  });
+
+  function toggleSettings() {
+    if (settingsPanel.style.display === 'block') {
+      settingsPanel.style.display = 'none';
+    } else {
+      settingsPanel.style.display = 'block';
+      startMenu.style.display = 'none';
+      contextMenu.style.display = 'none';
+    }
+  }
+})();
+</script>
+</body>
+</html>
